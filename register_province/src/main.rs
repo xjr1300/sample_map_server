@@ -1,19 +1,47 @@
 use std::{fs::File, io::Read, str::FromStr};
 
+use clap::Parser;
 use geojson::{Feature, FeatureCollection, JsonObject};
 use regex::Regex;
 use serde_json::Value;
 
-const GIFU_ADMINISTRATIVE_DIVISION_FILE: &str = "resources/N03-22_21_220101.geojson";
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// 国土交通省が配信する行政区域データを記録したGeoJSONファイル。
+    #[clap(short, long, value_parser)]
+    file: String,
+
+    /// 行政区域データに記録されている都道府県のコード。
+    #[clap(short, long, value_parser)]
+    code: String,
+}
+
+/// 文字列が都道府県コードと見なせるか判断する。
+///
+/// # Arguments
+///
+/// * `code` - 都道府県コードと見なせるか、検証する文字列。
+///
+/// # Returns
+///
+/// 文字列が都道府県コードと見なせる場合はtrue、見なせない場合はfalse。
+fn is_prefecture_code(code: &str) -> bool {
+    ("01"..="47").contains(&code)
+}
 
 /// 国土交通省国土数値情報ダウンロードサイトから取得した行政区域データ(GeoJSONファイル)を読み込み。
+///
+/// # Arguments
+///
+/// * `file`: 行政区域データ（GeoJSON）ファイルのパス。
 ///
 /// # Returns
 ///
 /// フィーチャーコレクション。
-fn read_features() -> FeatureCollection {
+fn read_features(file: &str) -> FeatureCollection {
     // GEOJSONファイルの内容を読み込み
-    let mut file = File::open(GIFU_ADMINISTRATIVE_DIVISION_FILE).expect("file not found.");
+    let mut file = File::open(file).expect("file not found.");
     let mut content = String::new();
     file.read_to_string(&mut content)
         .expect("file content is incorrect.");
@@ -178,8 +206,14 @@ fn divide_prefectures_and_cities(fc: &FeatureCollection) -> (Vec<Feature>, Vec<F
 }
 
 fn main() {
+    // マンドライン引数を読み込み。
+    let args = Args::parse();
+    if !is_prefecture_code(&args.code) {
+        panic!("都道府県コード({})が不正です。", args.code);
+    }
+
     // GEOJSONファイルの内容を読み込み
-    let fc = read_features();
+    let fc = read_features(&args.file);
     dbg!(fc.features.len());
     // EPSGコードを取得
     let epsg = get_epsg_code(&fc);
