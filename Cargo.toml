@@ -1,2 +1,2 @@
 [workspace]
-members = ["geojson_reader"]
+members = ["register_province"]

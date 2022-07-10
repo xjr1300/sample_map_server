@@ -1,5 +1,5 @@
 [package]
-name = "geojson_reader"
+name = "register_province"
 version = "0.1.0"
 edition = "2021"
 
