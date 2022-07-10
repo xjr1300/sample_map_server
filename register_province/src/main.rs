@@ -249,63 +249,21 @@ async fn register_prefecture(
 ) -> anyhow::Result<()> {
     let name = get_feature_property(f, "name").unwrap();
     let geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
-    // sqlx::query!マクロは、`ジオメトリの型をサポートしていない`とのエラーが発生する。
-    let _ = sqlx::query(
+    let _ = sqlx::query!(
         r#"
             INSERT INTO prefectures (id, code, name, geom)
             VALUES(gen_random_uuid(), $1, $2, ST_SetSRID($3::geometry, $4))
         "#,
+        code,
+        name,
+        wkb::Encode(geom) as _,
+        srid,
     )
-    .bind(code)
-    .bind(name)
-    .bind(wkb::Encode(geom))
-    .bind(srid)
     .execute(&mut *tx)
     .await
     .map_err(|e| {
         anyhow!(format!(
             "データベースに都道府県を登録するときにエラーが発生しました。{}",
-            e
-        ))
-    });
-
-    Ok(())
-}
-
-/// 市区町村フィーチャを、市区町村としてデータベースに登録する。
-///
-/// # Arguments
-///
-/// * `tx` - データベーストランザクション。
-/// * `f` - 市区町村フィーチャー。
-/// * `code` - 都道府県コード。
-/// * `srid` - 空間参照ID。
-async fn register_city(
-    tx: &mut Transaction<'_, Postgres>,
-    f: &Feature,
-    srid: i32,
-) -> anyhow::Result<()> {
-    let code = get_feature_property(f, "code").unwrap();
-    let area = get_feature_property(f, "area");
-    let name = get_feature_property(f, "name").unwrap();
-    let geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
-    // sqlx::query!マクロは、`ジオメトリの型をサポートしていない`とのエラーが発生する。
-    let _ = sqlx::query(
-        r#"
-            INSERT INTO cities (id, code, area, name, geom)
-            VALUES(gen_random_uuid(), $1, $2, $3, ST_SetSRID($4::geometry, $5))
-        "#,
-    )
-    .bind(code)
-    .bind(area)
-    .bind(name)
-    .bind(wkb::Encode(geom))
-    .bind(srid)
-    .execute(&mut *tx)
-    .await
-    .map_err(|e| {
-        anyhow!(format!(
-            "データベースに市区町村を登録するときにエラーが発生しました。{}",
             e
         ))
     });
@@ -330,6 +288,45 @@ async fn register_prefectures(
     for f in pref_fs.iter() {
         register_prefecture(tx, f, code, srid).await?;
     }
+
+    Ok(())
+}
+/// 市区町村フィーチャを、市区町村としてデータベースに登録する。
+///
+/// # Arguments
+///
+/// * `tx` - データベーストランザクション。
+/// * `f` - 市区町村フィーチャー。
+/// * `code` - 都道府県コード。
+/// * `srid` - 空間参照ID。
+async fn register_city(
+    tx: &mut Transaction<'_, Postgres>,
+    f: &Feature,
+    srid: i32,
+) -> anyhow::Result<()> {
+    let code = get_feature_property(f, "code").unwrap();
+    let area = get_feature_property(f, "area");
+    let name = get_feature_property(f, "name").unwrap();
+    let geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
+    let _ = sqlx::query!(
+        r#"
+            INSERT INTO cities (id, code, area, name, geom)
+            VALUES(gen_random_uuid(), $1, $2, $3, ST_SetSRID($4::geometry, $5))
+        "#,
+        code,
+        area,
+        name,
+        wkb::Encode(geom) as _,
+        srid,
+    )
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        anyhow!(format!(
+            "データベースに市区町村を登録するときにエラーが発生しました。{}",
+            e
+        ))
+    });
 
     Ok(())
 }
