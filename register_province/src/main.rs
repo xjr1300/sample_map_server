@@ -1,9 +1,13 @@
-use std::{fs::File, io::Read, str::FromStr};
+use std::{convert::TryInto, fs::File, io::Read, str::FromStr};
 
+use anyhow::anyhow;
 use clap::Parser;
-use geojson::{Feature, FeatureCollection, JsonObject};
+use dotenvy::dotenv;
+use geojson::{self, Feature, FeatureCollection, JsonObject};
+use geozero::wkb;
 use regex::Regex;
 use serde_json::Value;
+use sqlx::{postgres::PgPoolOptions, PgPool, Postgres, Transaction};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -59,7 +63,7 @@ fn read_features(file: &str) -> FeatureCollection {
 /// # Returns
 ///
 /// EPSGコード。
-fn get_epsg_code(fc: &FeatureCollection) -> u32 {
+fn get_epsg_code(fc: &FeatureCollection) -> i32 {
     let crs = fc
         .foreign_members
         .as_ref()
@@ -73,7 +77,7 @@ fn get_epsg_code(fc: &FeatureCollection) -> u32 {
     let re = Regex::new(r"urn:ogc:def:crs:EPSG::(\d*)").unwrap();
     let captures = re.captures(crs.as_str().unwrap()).unwrap();
 
-    captures.get(1).unwrap().as_str().parse::<u32>().unwrap()
+    captures.get(1).unwrap().as_str().parse::<i32>().unwrap()
 }
 
 /// フィーチャから属性を取得する。
@@ -205,8 +209,91 @@ fn divide_prefectures_and_cities(fc: &FeatureCollection) -> (Vec<Feature>, Vec<F
     (prefectures, cities)
 }
 
-fn main() {
-    // マンドライン引数を読み込み。
+/// 都道府県フィーチャを、都道府県としてデータベースに登録する。
+///
+/// # Arguments
+///
+/// * `tx` - データーベーストランザクション。
+/// * `f` - 都道府県フィーチャー。
+/// * `code` - 都道府県コード。
+async fn register_prefecture(
+    tx: &mut Transaction<'_, Postgres>,
+    f: &Feature,
+    code: &str,
+    srid: i32,
+) -> anyhow::Result<()> {
+    let name = get_feature_property(f, "name").unwrap();
+    let geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
+    let _ = sqlx::query(
+        r#"
+            INSERT INTO prefectures (id, code, name, geom)
+            VALUES(gen_random_uuid(), $1, $2, ST_SetSRID($3::geometry, $4))
+        "#,
+    )
+    .bind(code)
+    .bind(name)
+    .bind(wkb::Encode(geom))
+    .bind(srid)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        anyhow!(format!(
+            "データベースに都道府県を登録するときにエラーが発生しました。{}",
+            e
+        ))
+    });
+
+    Ok(())
+}
+
+/// ベクタに格納された都道府県フィーチャを、都道府県としてデータベースに登録する。
+///
+/// # Arguments
+///
+/// * `tx` - データーベーストランザクション。
+/// * `pref_fs` - 都道府県フィーチャーを格納したベクタ。
+/// * `code` - 都道府県コード。
+/// * `srid` - 空間参照ID。
+async fn register_prefectures(
+    tx: &mut Transaction<'_, Postgres>,
+    pref_fs: &[Feature],
+    code: &str,
+    srid: i32,
+) -> anyhow::Result<()> {
+    for f in pref_fs.iter() {
+        register_prefecture(tx, f, code, srid).await?;
+    }
+
+    Ok(())
+}
+
+/// 環境変数DATABASE_URLの値を使用して、データーベースに接続する。
+///
+/// # Returns
+///
+/// データーベースコネクションプール。
+async fn connect_to_database() -> PgPool {
+    let key = "DATABASE_URL";
+    let url = std::env::var(key).unwrap_or_else(|_| {
+        format!(
+            "環境変数にデータベースへの接続URLを示す{}が設定されていません。",
+            key
+        )
+    });
+
+    PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&url)
+        .await
+        .expect("データベースに接続できません。環境変数DATABASE_URLの値を確認してください。")
+}
+
+#[tokio::main]
+async fn main() {
+    // 環境変数を読み込み
+    dotenv().ok();
+
+    // マンドライン引数を読み込み
     let args = Args::parse();
     if !is_prefecture_code(&args.code) {
         panic!("都道府県コード({})が不正です。", args.code);
@@ -222,4 +309,20 @@ fn main() {
     let (pref_fs, city_fs) = divide_prefectures_and_cities(&fc);
     dbg!(pref_fs.len());
     dbg!(city_fs.len());
+
+    // データベースに接続して、トランザクションを開始
+    let pool = connect_to_database().await;
+    let mut tx = pool
+        .begin()
+        .await
+        .expect("データベーストランザクションを開始できません。");
+    // 都道府県を登録
+    if let Err(e) = register_prefectures(&mut tx, &pref_fs, &args.code, epsg).await {
+        panic!("{}", e);
+    };
+
+    // トランザクションをコミット
+    tx.commit()
+        .await
+        .expect("データーベーストランザクションをコミットできませんでした。");
 }
