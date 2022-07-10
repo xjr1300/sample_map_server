@@ -114,9 +114,9 @@ fn get_feature_property(f: &Feature, key: &str) -> Option<String> {
 /// 都道府県の場合はtrue。市区町村の場合はfalse。
 fn is_prefecture(f: &Feature) -> bool {
     for num in 2..=4 {
-        let value = get_feature_property(&f, &format!("N03_00{}", num));
-        if value.is_some() {
-            if value.unwrap() != "" {
+        let value = get_feature_property(f, &format!("N03_00{}", num));
+        if let Some(value) = value {
+            if !value.is_empty() {
                 return false;
             }
         }
@@ -135,7 +135,7 @@ fn is_prefecture(f: &Feature) -> bool {
 ///
 /// 行政区域データの属性を設定し直した都道府県フィーチャー。
 fn create_prefecture_feature(f: &Feature) -> Feature {
-    let name = get_feature_property(&f, "N03_001").unwrap();
+    let name = get_feature_property(f, "N03_001").unwrap();
     let mut properties = JsonObject::new();
     properties.insert("name".to_owned(), name.into());
 
@@ -158,15 +158,15 @@ fn create_prefecture_feature(f: &Feature) -> Feature {
 ///
 /// 行政区域データの属性を設定し直した市区町村フィーチャー。
 fn create_city_feature(f: &Feature) -> Feature {
-    let area = get_feature_property(&f, "N03_003");
-    let name = get_feature_property(&f, "N03_004").unwrap();
-    let code = get_feature_property(&f, "N03_007").unwrap();
+    let area = get_feature_property(f, "N03_003");
+    let name = get_feature_property(f, "N03_004").unwrap();
+    let code = get_feature_property(f, "N03_007").unwrap();
     let mut properties = JsonObject::new();
     properties.insert("code".to_owned(), code.into());
     properties.insert(
         "area".to_owned(),
-        if area.is_some() {
-            area.unwrap().into()
+        if let Some(area) = area {
+            area.into()
         } else {
             Value::Null
         },
@@ -195,10 +195,10 @@ fn divide_prefectures_and_cities(fc: &FeatureCollection) -> (Vec<Feature>, Vec<F
     let mut prefectures: Vec<Feature> = Vec::new();
     let mut cities: Vec<Feature> = Vec::new();
     for f in fc.features.iter() {
-        if is_prefecture(&f) {
-            prefectures.push(create_prefecture_feature(&f));
+        if is_prefecture(f) {
+            prefectures.push(create_prefecture_feature(f));
         } else {
-            cities.push(create_city_feature(&f));
+            cities.push(create_city_feature(f));
         }
     }
 
