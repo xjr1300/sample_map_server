@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  postgis:
+    build: ./postgis
+    container_name: sample_map_server_postgis
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: sample_map_server
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sample_map_server
+    volumes:
+      - sample_map_server_postgis:/sample_map_server_postgis
+
+volumes:
+  sample_map_server_postgis:
