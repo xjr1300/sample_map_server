@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 geojson = "0.23"
+regex = "1.6"
