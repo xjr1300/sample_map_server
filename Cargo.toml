@@ -1,3 +1,2 @@
 [workspace]
-
-members = []
+members = ["geojson_reader"]
