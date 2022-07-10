@@ -334,6 +334,25 @@ async fn register_prefectures(
     Ok(())
 }
 
+/// ベクタに格納された市区町村フィーチャを、市区町村としてデータベースに登録する。
+///
+/// # Arguments
+///
+/// * `tx` - データベーストランザクション。
+/// * `city_fs` - 市区町村フィーチャベクタ。
+/// * `srid` - 空間参照ID。
+async fn register_cities(
+    tx: &mut Transaction<'_, Postgres>,
+    city_fs: &[Feature],
+    srid: i32,
+) -> anyhow::Result<()> {
+    for f in city_fs.iter() {
+        register_city(tx, f, srid).await?;
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     // 環境変数を読み込み
@@ -365,6 +384,10 @@ async fn main() {
 
     // 都道府県を登録
     if let Err(e) = register_prefectures(&mut tx, &pref_fs, &args.code, epsg).await {
+        panic!("{}", e);
+    };
+    // 市区町村を登録
+    if let Err(e) = register_cities(&mut tx, &city_fs, epsg).await {
         panic!("{}", e);
     };
 
