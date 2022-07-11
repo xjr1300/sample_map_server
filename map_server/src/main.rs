@@ -1,35 +1,9 @@
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpServer};
 use database::connect_to_database;
 use dotenvy::dotenv;
+
+use map_server::handlers;
 use map_server::telemetries::{get_subscriber, init_subscriber};
-use sqlx::PgPool;
-
-#[tracing::instrument(name = "Health check")]
-async fn health_check() -> impl Responder {
-    "Are you ready?"
-}
-
-#[tracing::instrument(name = "Prefectures", skip(pool))]
-async fn prefectures(pool: web::Data<PgPool>) -> HttpResponse {
-    let result = sqlx::query!(
-        r#"
-        SELECT json_build_object(
-            'type', 'FeatureCollection',
-            'features', json_agg(ST_AsGeoJSON(p.*)::json)
-        ) as fc
-        FROM (
-            SELECT id, name, geom  FROM prefectures
-        ) p
-        "#,
-    )
-    .fetch_one(pool.as_ref())
-    .await;
-
-    match result {
-        Ok(result) => HttpResponse::Ok().json(result.fc.unwrap()),
-        Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
-    }
-}
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -44,8 +18,9 @@ async fn main() -> std::io::Result<()> {
     tracing::info!("Webサーバーを起動");
     HttpServer::new(move || {
         App::new()
-            .route("/health_check", web::get().to(health_check))
-            .route("/prefectures", web::get().to(prefectures))
+            .route("/health_check", web::get().to(handlers::health_check))
+            .route("/prefectures", web::get().to(handlers::prefectures))
+            .route("/cities", web::get().to(handlers::cities))
             .app_data(pool.clone())
     })
     .bind(("127.0.0.1", 8080))?
