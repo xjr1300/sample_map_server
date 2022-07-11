@@ -3,5 +3,5 @@ CREATE TABLE cities (
     code CHAR(5) NOT NULL,
     area VARCHAR(40),
     name VARCHAR(40) NOT NULL,
-    geom geometry(POLYGON, 6668)
+    geom geometry(POLYGON, 3857)
 );
