@@ -285,6 +285,28 @@ fn confirm_register(code: &str) -> bool {
     false
 }
 
+/// 都道府県コードで示される都道府県と市区町村をデータベースから削除する。
+///
+/// # Arguments
+///
+/// * `tx` - データベーストランザクション。
+/// * `code` - 都道府県コード。
+async fn drop_prefectures_and_cities(
+    tx: &mut Transaction<'_, Postgres>,
+    code: &str,
+) -> anyhow::Result<()> {
+    sqlx::query!("DELETE FROM prefectures WHERE code = $1", code)
+        .execute(&mut *tx)
+        .await?;
+
+    let code_like = format!("{}%", code);
+    sqlx::query!("DELETE FROM cities WHERE code LIKE $1", code_like)
+        .execute(&mut *tx)
+        .await?;
+
+    Ok(())
+}
+
 /// 都道府県フィーチャを、都道府県としてデータベースに登録する。
 ///
 /// # Arguments
@@ -419,7 +441,7 @@ async fn main() {
     // EPSGコードを取得
     let epsg = get_epsg_code(&fc);
     dbg!(epsg);
-    // 県と市町村にフィーチャーを分割
+    // 県と市区町村にフィーチャーを分割
     let (pref_fs, city_fs) = divide_prefectures_and_cities(&fc);
     dbg!(pref_fs.len());
     dbg!(city_fs.len());
@@ -431,15 +453,19 @@ async fn main() {
         .await
         .expect("データベーストランザクションを開始できません。");
 
-    // 都道府県コードで示される都道府県と市町村が登録されているか確認
+    // 都道府県コードで示される都道府県と市区町村が登録されているか確認
     let exists = exists_province(&mut tx, &args.code).await;
     if let Err(e) = exists {
         panic!("{}", e);
     }
     if exists.unwrap() {
-        // 都道府県コードで示される都道府県と市町村が登録されている場合は、削除して登録することをユーザーに確認
+        // 都道府県コードで示される都道府県と市区町村が登録されている場合は、削除して登録することをユーザーに確認
         if !confirm_register(&args.code) {
             return;
+        }
+        // 都道府県コードで示される都道府県と市区町村を削除
+        if let Err(e) = drop_prefectures_and_cities(&mut tx, &args.code).await {
+            panic!("{}", e);
         }
     }
 
