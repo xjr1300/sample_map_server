@@ -8,7 +8,6 @@ async fn prefectures() -> HttpResponse {
     HttpResponse::Ok().body("Prefectures")
 }
 
-
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {

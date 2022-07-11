@@ -1,0 +1,13 @@
+[package]
+name = "database"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx = { version = "0.5", default_features = false, features = [
+    "runtime-tokio-native-tls",
+    "macros",
+    "postgres",
+    "time",
+    "uuid",
+] }
