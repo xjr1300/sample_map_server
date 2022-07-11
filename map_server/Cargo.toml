@@ -15,3 +15,5 @@ sqlx = { version = "0.5", default_features = false, features = [
     "uuid",
 ] }
 tokio = { version = "1.19", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = "0.2"

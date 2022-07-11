@@ -27,8 +27,12 @@ async fn prefectures(pool: web::Data<PgPool>) -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
+    tracing_subscriber::fmt::init();
+
+    tracing::info!("データベースと接続");
     let pool = web::Data::new(connect_to_database().await);
 
+    tracing::info!("Webサーバーを起動");
     HttpServer::new(move || {
         App::new()
             .route("/health_check", web::get().to(health_check))
