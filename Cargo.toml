@@ -1,2 +1,2 @@
 [workspace]
-members = ["register_prefecture"]
+members = ["register_prefecture", "map_server"]
