@@ -1,4 +1,9 @@
-use std::{convert::TryInto, fs::File, io::Read, str::FromStr};
+use std::{
+    convert::TryInto,
+    fs::File,
+    io::{Read, Write},
+    str::FromStr,
+};
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -233,6 +238,73 @@ async fn connect_to_database() -> PgPool {
         .expect("データベースに接続できません。環境変数DATABASE_URLの値を確認してください。")
 }
 
+/// 都道府県コードから、当該都道府県またはその市区町村のデータがデータベースに登録されているか確認する。
+///
+/// # Arguments
+///
+/// * `tx` - データベーストランザクション。
+/// * `code` - 都道府県コード。
+///
+/// # Returns
+///
+/// 当該都道府県またはその市区町村のデータがデータベースに登録されている場合はtrue。登録されていない場合はfalse。
+async fn exists_province(tx: &mut Transaction<'_, Postgres>, code: &str) -> anyhow::Result<bool> {
+    let code_like = format!("{}%", code);
+    let result = sqlx::query!(
+        r#"
+        SELECT p.prefs, c.cities FROM
+        (SELECT COUNT(*) prefs FROM prefectures WHERE code = $1) p,
+        (SELECT COUNT(*) cities FROM cities WHERE code LIKE $2) c;
+        "#,
+        code,
+        &code_like,
+    )
+    .fetch_one(tx)
+    .await
+    .map_err(|e| {
+        anyhow!(format!(
+            "データベースに登録されているレコード数を確認するときにエラーが発生しました。{}",
+            e
+        ))
+    })?;
+    if 0 < result.prefs.unwrap() || 0 < result.cities.unwrap() {
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+/// 既存のデータを削除して登録することをユーザーに確認する。
+///
+/// # Arguments
+///
+/// * `code` - 都道府県コード。
+///
+/// # Returns
+///
+/// ユーザーが許可した場合はtrue。許可しなかった場合はfalse。
+fn confirm_register(code: &str) -> bool {
+    println!("指定された都道府県({})のレコードが登録されています。", code);
+    loop {
+        print!("既存のレコードを削除して登録しますか? [y/n]: ");
+        std::io::stdout().flush().unwrap();
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer).ok();
+        let answer: String = answer.trim().parse().ok().unwrap();
+        if answer.is_empty() {
+            continue;
+        }
+        let answer = answer.to_lowercase();
+        if answer.starts_with('y') {
+            return true;
+        } else if answer.starts_with('n') {
+            break;
+        }
+    }
+
+    false
+}
+
 /// 都道府県フィーチャを、都道府県としてデータベースに登録する。
 ///
 /// # Arguments
@@ -378,6 +450,18 @@ async fn main() {
         .begin()
         .await
         .expect("データベーストランザクションを開始できません。");
+
+    // 都道府県コードで示される都道府県と市町村が登録されているか確認
+    let exists = exists_province(&mut tx, &args.code).await;
+    if let Err(e) = exists {
+        panic!("{}", e);
+    }
+    if exists.unwrap() {
+        // 都道府県コードで示される都道府県と市町村が登録されている場合は、削除して登録することをユーザーに確認
+        if !confirm_register(&args.code) {
+            return;
+        }
+    }
 
     // 都道府県を登録
     if let Err(e) = register_prefectures(&mut tx, &pref_fs, &args.code, epsg).await {

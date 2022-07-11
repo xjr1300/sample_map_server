@@ -5,6 +5,7 @@
         "EPSG",
         "geozero",
         "postgis",
+        "prefs",
         "sqlx",
         "srid"
     ]
