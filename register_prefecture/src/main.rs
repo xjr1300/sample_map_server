@@ -11,6 +11,7 @@ use database::connect_to_database;
 use dotenvy::dotenv;
 use geojson::{self, Feature, FeatureCollection, JsonObject};
 use geozero::wkb;
+use proj::Transform;
 use regex::Regex;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
@@ -322,7 +323,11 @@ async fn register_prefecture(
     srid: i32,
 ) -> anyhow::Result<()> {
     let name = get_feature_property(f, "name").unwrap();
-    let geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
+    let mut geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
+    let from = format!("EPSG:{}", srid);
+    let to = format!("EPSG:{}", spatial::SRID_WEB_MERCATOR);
+    geom.transform_crs_to_crs(&from, &to).unwrap();
+
     let _ = sqlx::query!(
         r#"
             INSERT INTO prefectures (id, code, name, geom)
@@ -331,7 +336,7 @@ async fn register_prefecture(
         code,
         name,
         wkb::Encode(geom) as _,
-        srid,
+        spatial::SRID_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
@@ -381,7 +386,11 @@ async fn register_city(
     let code = get_feature_property(f, "code").unwrap();
     let area = get_feature_property(f, "area");
     let name = get_feature_property(f, "name").unwrap();
-    let geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
+    let mut geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
+    let from = format!("EPSG:{}", srid);
+    let to = format!("EPSG:{}", spatial::SRID_WEB_MERCATOR);
+    geom.transform_crs_to_crs(&from, &to).unwrap();
+
     let _ = sqlx::query!(
         r#"
             INSERT INTO cities (id, code, area, name, geom)
@@ -391,7 +400,7 @@ async fn register_city(
         area,
         name,
         wkb::Encode(geom) as _,
-        srid,
+        spatial::SRID_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
