@@ -27,3 +27,26 @@ pub async fn prefectures(pool: web::Data<PgPool>) -> HttpResponse {
         Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
     }
 }
+
+// TODO: タイル座標を受け取りそのタイルと重なる市区町村を返却するように改修
+#[tracing::instrument(name = "Cities", skip(pool))]
+pub async fn cities(pool: web::Data<PgPool>) -> HttpResponse {
+    let result = sqlx::query!(
+        r#"
+        SELECT json_build_object(
+            'type', 'FeatureCollection',
+            'features', json_agg(ST_AsGeoJSON(c.*)::json)
+        ) as fc
+        FROM (
+            SELECT id, code, area, name, geom  FROM cities
+        ) c
+        "#,
+    )
+    .fetch_one(pool.as_ref())
+    .await;
+
+    match result {
+        Ok(result) => HttpResponse::Ok().json(result.fc.unwrap()),
+        Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
+    }
+}

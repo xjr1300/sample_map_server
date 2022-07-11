@@ -20,6 +20,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .route("/health_check", web::get().to(handlers::health_check))
             .route("/prefectures", web::get().to(handlers::prefectures))
+            .route("/cities", web::get().to(handlers::cities))
             .app_data(pool.clone())
     })
     .bind(("127.0.0.1", 8080))?
