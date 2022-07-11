@@ -1,12 +1,15 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use database::connect_to_database;
 use dotenvy::dotenv;
+use map_server::telemetries::{get_subscriber, init_subscriber};
 use sqlx::PgPool;
 
+#[tracing::instrument(name = "Health check")]
 async fn health_check() -> impl Responder {
     "Are you ready?"
 }
 
+#[tracing::instrument(name = "Prefectures", skip(pool))]
 async fn prefectures(pool: web::Data<PgPool>) -> HttpResponse {
     let result = sqlx::query!(
         r#"
@@ -27,7 +30,8 @@ async fn prefectures(pool: web::Data<PgPool>) -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    tracing_subscriber::fmt::init();
+    let subscriber = get_subscriber("sample_map_server".into(), "info".into(), std::io::stdout);
+    init_subscriber(subscriber);
 
     tracing::info!("データベースと接続");
     let pool = web::Data::new(connect_to_database().await);
