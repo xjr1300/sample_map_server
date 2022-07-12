@@ -1,7 +1,8 @@
 use std::io::Write;
 
-/// Webメルカトル投影法のSRID。
-pub const SRID_WEB_MERCATOR: i32 = 3857;
+/// Webメルカトル投影法のEPSGコード。
+pub const EPSG_WGS84: i32 = 4326;
+pub const EPSG_WEB_MERCATOR: i32 = 3857;
 
 /// 文字列が都道府県コードと見なせるか判断する。
 ///

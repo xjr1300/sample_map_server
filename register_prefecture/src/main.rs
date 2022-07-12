@@ -10,7 +10,7 @@ use proj::Transform;
 use regex::Regex;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
-use utils::{confirm_register, is_prefecture_code, SRID_WEB_MERCATOR};
+use utils::{confirm_register, is_prefecture_code, EPSG_WEB_MERCATOR};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -277,7 +277,7 @@ async fn register_prefecture(
     let name = get_feature_property(f, "name").unwrap();
     let mut geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
     let from = format!("EPSG:{}", srid);
-    let to = format!("EPSG:{}", SRID_WEB_MERCATOR);
+    let to = format!("EPSG:{}", EPSG_WEB_MERCATOR);
     geom.transform_crs_to_crs(&from, &to).unwrap();
 
     let _ = sqlx::query!(
@@ -288,7 +288,7 @@ async fn register_prefecture(
         code,
         name,
         wkb::Encode(geom) as _,
-        SRID_WEB_MERCATOR,
+        EPSG_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
@@ -340,7 +340,7 @@ async fn register_city(
     let name = get_feature_property(f, "name").unwrap();
     let mut geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
     let from = format!("EPSG:{}", srid);
-    let to = format!("EPSG:{}", SRID_WEB_MERCATOR);
+    let to = format!("EPSG:{}", EPSG_WEB_MERCATOR);
     geom.transform_crs_to_crs(&from, &to).unwrap();
 
     let _ = sqlx::query!(
@@ -352,7 +352,7 @@ async fn register_city(
         area,
         name,
         wkb::Encode(geom) as _,
-        SRID_WEB_MERCATOR,
+        EPSG_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
