@@ -1,12 +1,14 @@
 {
     "cSpell.words": [
         "bbox",
+        "dbase",
         "dotenvy",
         "EPSG",
         "geozero",
         "libproj",
         "postgis",
         "prefs",
+        "shapefile",
         "sqlx",
         "srid"
     ]
