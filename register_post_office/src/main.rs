@@ -14,7 +14,7 @@ use shapefile::{
     Shape,
 };
 use sqlx::{Postgres, Transaction};
-use utils::{confirm_register, is_prefecture_code, SRID_WEB_MERCATOR};
+use utils::{confirm_register, is_prefecture_code, EPSG_WEB_MERCATOR};
 
 type ShapeReader = shapefile::Reader<BufReader<File>>;
 
@@ -98,7 +98,7 @@ fn shape_to_post_office(shape: Shape, record: Record, srid: i32) -> PostOffice {
     // ジオメトリ
     let mut geom: geo_types::Geometry = geo_types::Geometry::<f64>::try_from(shape).unwrap();
     let from = format!("EPSG:{}", srid);
-    let to = format!("EPSG:{}", SRID_WEB_MERCATOR);
+    let to = format!("EPSG:{}", EPSG_WEB_MERCATOR);
     geom.transform_crs_to_crs(&from, &to).unwrap();
     // 行政区域コード
     let city_code = read_string_field(&record, "P30_001").unwrap();
@@ -220,7 +220,7 @@ async fn register_post_office(
         post_office.name,
         post_office.address,
         wkb::Encode(post_office.geom.clone()) as _,
-        SRID_WEB_MERCATOR,
+        EPSG_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
