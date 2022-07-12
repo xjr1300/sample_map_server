@@ -1,1 +1,1 @@
-DROP TABLE offices;
+DROP TABLE post_offices;
