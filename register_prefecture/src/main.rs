@@ -438,7 +438,7 @@ async fn main() {
     // 環境変数を読み込み
     dotenv().ok();
 
-    // マンドライン引数を読み込み
+    // コマンドライン引数を読み込み
     let args = Args::parse();
     if !is_prefecture_code(&args.code) {
         panic!("都道府県コード({})が不正です。", args.code);

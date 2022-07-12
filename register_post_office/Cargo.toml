@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 clap = { version = "3.2", features = ["derive"] }
+dbase = { git = "https://github.com/tmontaigu/dbase-rs.git", rev = "c350df033721e7eee75272527e56f235f2a8dd51" }
+dotenvy = "0.15"
+geozero-shp = "0.3"
+once_cell = "1.13"
