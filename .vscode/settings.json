@@ -8,6 +8,7 @@
         "libproj",
         "postgis",
         "prefs",
+        "shapefile",
         "sqlx",
         "srid"
     ]

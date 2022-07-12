@@ -3,6 +3,6 @@ members = [
     "register_prefecture",
     "map_server",
     "database",
-    "spatial",
-    "register_post_office"
+    "register_post_office",
+    "utils",
 ]

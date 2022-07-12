@@ -1,9 +1,4 @@
-use std::{
-    convert::TryInto,
-    fs::File,
-    io::{Read, Write},
-    str::FromStr,
-};
+use std::{convert::TryInto, fs::File, io::Read, str::FromStr};
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -15,6 +10,7 @@ use proj::Transform;
 use regex::Regex;
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
+use utils::{confirm_register, is_prefecture_code, SRID_WEB_MERCATOR};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -29,19 +25,6 @@ struct Args {
     /// ファイル名が変更されることを考慮して、明示的に引数で指定する。
     #[clap(short, long, value_parser)]
     code: String,
-}
-
-/// 文字列が都道府県コードと見なせるか判断する。
-///
-/// # Arguments
-///
-/// * `code` - 都道府県コードと見なせるか、検証する文字列。
-///
-/// # Returns
-///
-/// 文字列が都道府県コードと見なせる場合はtrue、見なせない場合はfalse。
-fn is_prefecture_code(code: &str) -> bool {
-    ("01"..="47").contains(&code)
 }
 
 /// 国土交通省国土数値情報ダウンロードサイトから取得した行政区域データ(GeoJSONファイル)を読み込み。
@@ -219,7 +202,7 @@ fn divide_prefectures_and_cities(fc: &FeatureCollection) -> (Vec<Feature>, Vec<F
     (prefectures, cities)
 }
 
-/// 都道府県コードから、当該都道府県またはその市区町村のデータがデータベースに登録されているか確認する。
+/// 指定された都道府県コードの都道府県または市区町村のデータが、データベースに登録されているか確認する。
 ///
 /// # Arguments
 ///
@@ -229,7 +212,7 @@ fn divide_prefectures_and_cities(fc: &FeatureCollection) -> (Vec<Feature>, Vec<F
 /// # Returns
 ///
 /// 当該都道府県またはその市区町村のデータがデータベースに登録されている場合はtrue。登録されていない場合はfalse。
-async fn exists_province(tx: &mut Transaction<'_, Postgres>, code: &str) -> anyhow::Result<bool> {
+async fn exists_prefecture(tx: &mut Transaction<'_, Postgres>, code: &str) -> anyhow::Result<bool> {
     let code_like = format!("{}%", code);
     let result = sqlx::query!(
         r#"
@@ -255,44 +238,13 @@ async fn exists_province(tx: &mut Transaction<'_, Postgres>, code: &str) -> anyh
     Ok(false)
 }
 
-/// 既存のデータを削除して登録することをユーザーに確認する。
-///
-/// # Arguments
-///
-/// * `code` - 都道府県コード。
-///
-/// # Returns
-///
-/// ユーザーが許可した場合はtrue。許可しなかった場合はfalse。
-fn confirm_register(code: &str) -> bool {
-    println!("指定された都道府県({})のレコードが登録されています。", code);
-    loop {
-        print!("既存のレコードを削除して登録しますか? [y/n]: ");
-        std::io::stdout().flush().unwrap();
-        let mut answer = String::new();
-        std::io::stdin().read_line(&mut answer).ok();
-        let answer: String = answer.trim().parse().ok().unwrap();
-        if answer.is_empty() {
-            continue;
-        }
-        let answer = answer.to_lowercase();
-        if answer.starts_with('y') {
-            return true;
-        } else if answer.starts_with('n') {
-            break;
-        }
-    }
-
-    false
-}
-
-/// 都道府県コードで示される都道府県と市区町村をデータベースから削除する。
+/// 指定された都道府県コードの都道府県と市区町村をデータベースから削除する。
 ///
 /// # Arguments
 ///
 /// * `tx` - データベーストランザクション。
 /// * `code` - 都道府県コード。
-async fn drop_prefectures_and_cities(
+async fn delete_prefectures_and_cities(
     tx: &mut Transaction<'_, Postgres>,
     code: &str,
 ) -> anyhow::Result<()> {
@@ -325,7 +277,7 @@ async fn register_prefecture(
     let name = get_feature_property(f, "name").unwrap();
     let mut geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
     let from = format!("EPSG:{}", srid);
-    let to = format!("EPSG:{}", spatial::SRID_WEB_MERCATOR);
+    let to = format!("EPSG:{}", SRID_WEB_MERCATOR);
     geom.transform_crs_to_crs(&from, &to).unwrap();
 
     let _ = sqlx::query!(
@@ -336,7 +288,7 @@ async fn register_prefecture(
         code,
         name,
         wkb::Encode(geom) as _,
-        spatial::SRID_WEB_MERCATOR,
+        SRID_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
@@ -388,7 +340,7 @@ async fn register_city(
     let name = get_feature_property(f, "name").unwrap();
     let mut geom: geo_types::Geometry<f64> = f.geometry.clone().unwrap().value.try_into().unwrap();
     let from = format!("EPSG:{}", srid);
-    let to = format!("EPSG:{}", spatial::SRID_WEB_MERCATOR);
+    let to = format!("EPSG:{}", SRID_WEB_MERCATOR);
     geom.transform_crs_to_crs(&from, &to).unwrap();
 
     let _ = sqlx::query!(
@@ -400,7 +352,7 @@ async fn register_city(
         area,
         name,
         wkb::Encode(geom) as _,
-        spatial::SRID_WEB_MERCATOR,
+        SRID_WEB_MERCATOR,
     )
     .execute(&mut *tx)
     .await
@@ -462,18 +414,18 @@ async fn main() {
         .await
         .expect("データベーストランザクションを開始できません。");
 
-    // 都道府県コードで示される都道府県と市区町村が登録されているか確認
-    let exists = exists_province(&mut tx, &args.code).await;
+    // 指定された都道府県コードの都道府県と市区町村が登録されているか確認
+    let exists = exists_prefecture(&mut tx, &args.code).await;
     if let Err(e) = exists {
         panic!("{}", e);
     }
     if exists.unwrap() {
-        // 都道府県コードで示される都道府県と市区町村が登録されている場合は、削除して登録することをユーザーに確認
+        // 指定された都道府県コードの都道府県と市区町村が登録されている場合は、削除して登録することをユーザーに確認
         if !confirm_register(&args.code) {
             return;
         }
-        // 都道府県コードで示される都道府県と市区町村を削除
-        if let Err(e) = drop_prefectures_and_cities(&mut tx, &args.code).await {
+        // 指定された都道府県コードの都道府県と市区町村を削除
+        if let Err(e) = delete_prefectures_and_cities(&mut tx, &args.code).await {
             panic!("{}", e);
         }
     }
