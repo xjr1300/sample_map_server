@@ -1,0 +1,6 @@
+[package]
+name = "register_post_office"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
