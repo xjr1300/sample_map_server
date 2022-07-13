@@ -311,18 +311,3 @@ async fn main() {
         .await
         .expect("データベーストランザクションをコミットできませんでした。");
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::open_shape_file;
-
-    #[test]
-    fn open_post_office_shape_file() {
-        match open_shape_file("../resources/P30-13_21.shp") {
-            Ok(_) => (),
-            Err(e) => {
-                assert!(false, "{}", e);
-            }
-        };
-    }
-}
