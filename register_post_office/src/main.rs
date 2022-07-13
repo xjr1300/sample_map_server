@@ -32,6 +32,10 @@ struct Args {
     /// 郵便局データの空間参照ID。
     #[clap(short, long, value_parser)]
     srid: i32,
+
+    /// Shapeファイルの属性データファイルのエンコーディング。
+    #[clap(short, long, value_parser)]
+    encoding: String,
 }
 
 /// 郵便局データを記録したShapeファイルを開く。
@@ -39,12 +43,13 @@ struct Args {
 /// # Arguments
 ///
 /// * `path` - 郵便局データを記録したシェイプファイル(*.shp)のパス。
+/// * `encoding` - シェイプファイルの属性データファイルのエンコーディング。
 ///
 /// # Returns
 ///
 /// * Shapeファイルリーダー。
-fn open_shape_file(path: &str) -> anyhow::Result<ShapeReader> {
-    let reader = ShapeReader::from_path(path)?;
+fn open_shape_file(path: &str, encoding: &str) -> anyhow::Result<ShapeReader> {
+    let reader = ShapeReader::from_path_with_label(path, encoding)?;
     if reader.header().shape_type != shapefile::ShapeType::Point {
         return Err(anyhow!(
             "Shapeファイルのシェイプタイプが、Pointではありません。"
@@ -266,7 +271,7 @@ async fn main() {
     }
 
     // Shapeファイルを読み込み、郵便局を取得
-    let mut reader = open_shape_file(&args.file)
+    let mut reader = open_shape_file(&args.file, &args.encoding)
         .map_err(|e| {
             panic!("{}", e);
         })

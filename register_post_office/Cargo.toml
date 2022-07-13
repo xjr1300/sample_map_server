@@ -7,7 +7,6 @@ edition = "2021"
 anyhow = "1.0"
 clap = { version = "3.2", features = ["derive"] }
 database = { path = "../database" }
-dbase = { git = "https://github.com/tmontaigu/dbase-rs.git", rev = "c350df033721e7eee75272527e56f235f2a8dd51" }
 dotenvy = "0.15"
 encoding_rs = "0.8"
 geojson = { version = "0.23", features = ["geo-types"] }
@@ -15,7 +14,7 @@ geo-types = "0.7"
 geozero = { version = "0.9.4", features = ["with-postgis-sqlx", "with-wkb", "with-geojson"] }
 proj = "0.27"
 serde_json = "1.0"
-shapefile = { version = "0.3", features = ["geo-types"] }
+shapefile = { git = "https://github.com/xjr1300/shapefile-rs.git", branch = "master", features = ["geo-types"] }
 # `geozero = "0.9"`は、`sqlx = "0.6"`に対応していない
 sqlx = { version = "0.5", default_features = false, features = [
     "runtime-tokio-native-tls",
