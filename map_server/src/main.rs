@@ -1,3 +1,5 @@
+use actix_cors::Cors;
+use actix_web::http::header;
 use actix_web::{web, App, HttpServer};
 use database::connect_to_database;
 use dotenvy::dotenv;
@@ -18,6 +20,12 @@ async fn main() -> std::io::Result<()> {
     tracing::info!("Webサーバーを起動");
     HttpServer::new(move || {
         App::new()
+            .wrap(
+                Cors::default()
+                    .allow_any_origin()
+                    .allowed_methods(["GET"])
+                    .allowed_header(header::CONTENT_TYPE),
+            )
             .route("/health_check", web::get().to(handlers::health_check))
             .route("/prefectures", web::get().to(handlers::prefectures))
             .route("/cities", web::get().to(handlers::cities))

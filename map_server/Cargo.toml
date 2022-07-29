@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.1"
+actix-cors = "0.6"
 database = { path = "../database" }
 dotenvy = "0.15"
 proj = "0.27"
