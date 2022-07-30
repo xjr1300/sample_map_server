@@ -10,9 +10,6 @@
 * [行政区域データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v3_1.html)
 * [郵便局データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P30.html)
 
-本アプリで使用している`shapefile 0.3.0`は、文字列型の属性値に、utf-8エンコードで記録された文字列しか
-サポートしていないため、Shape(*.dbf)ファイルをutf-8エンコードに変換する必要がある。
-
 ## Docker
 
 ```bash
@@ -28,7 +25,7 @@ cargo install sqlx-cli --no-default-features --features native-tls,postgres
 ## Proj
 
 行政区域データなどをWebメルカトルに変換するために`proj`を使用する。
-なお、本アプリが使用する`proj-0.27`クレートは、`libproj v9.0.x`に依存している。
+本アプリが使用する`proj-0.27`クレートは、`libproj v9.0.x`に依存している。
 
 ```bash
 brew install proj
