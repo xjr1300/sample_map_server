@@ -2,6 +2,7 @@ use actix_web::{web, HttpResponse, Responder};
 use proj::Proj;
 use slippy_map_tiles as smt;
 use sqlx::PgPool;
+
 use utils::{EPSG_WEB_MERCATOR, EPSG_WGS84};
 
 #[tracing::instrument(name = "Health check")]
@@ -61,10 +62,7 @@ pub async fn tiled_cities(
     let polygon = tile_polygon(path.0, path.1, path.2)?;
     let result = sqlx::query!(
         r#"
-        SELECT json_build_object(
-            'type', 'FeatureCollection',
-            'features', json_agg(ST_AsGeoJSON(c.*)::json)
-        ) as fc
+        SELECT ST_AsGeoJSON(c.*) feature
         FROM (
             SELECT
                 id, code, area, name, geom FROM cities
@@ -75,11 +73,25 @@ pub async fn tiled_cities(
         polygon,
         EPSG_WEB_MERCATOR,
     )
-    .fetch_one(pool.as_ref())
+    .fetch_all(pool.as_ref())
     .await;
 
     match result {
-        Ok(result) => Ok(HttpResponse::Ok().json(result.fc.unwrap())),
+        Ok(result) => {
+            let mut features = "[".to_owned();
+            for record in result {
+                features.push_str(&record.feature.unwrap());
+                features.push(',');
+            }
+            if 1 < features.len() {
+                features.remove(features.len() - 1);
+            }
+            features.push(']');
+            Ok(actix_web::HttpResponse::Ok().body(format!(
+                r#"{{"features": {}, "type": "FeatureCollection"}}"#,
+                features
+            )))
+        }
         Err(e) => Err(actix_web::error::ErrorInternalServerError(format!("{}", e))),
     }
 }
