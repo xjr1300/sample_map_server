@@ -61,7 +61,7 @@ struct FeatureRecord {
 async fn generate_features(records: &[FeatureRecord]) -> String {
     let mut features = "[".to_owned();
     for record in records {
-        features.push_str(&record.feature.as_ref().unwrap());
+        features.push_str(record.feature.as_ref().unwrap());
         features.push(',');
     }
     if 1 < features.len() {
@@ -136,12 +136,10 @@ pub async fn tiled_post_offices(
     pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let polygon = tile_polygon(path.0, path.1, path.2)?;
-    let result = sqlx::query!(
+    let result = sqlx::query_as!(
+        FeatureRecord,
         r#"
-        SELECT json_build_object(
-            'type', 'FeatureCollection',
-            'features', json_agg(ST_AsGeoJSON(p.*)::json)
-        ) as fc
+        SELECT ST_AsGeoJSON(p.*) feature
         FROM (
             SELECT
                 id, city_code, category_code, subcategory_code, post_office_code,
@@ -155,11 +153,17 @@ pub async fn tiled_post_offices(
         polygon,
         EPSG_WEB_MERCATOR,
     )
-    .fetch_one(pool.as_ref())
+    .fetch_all(pool.as_ref())
     .await;
 
     match result {
-        Ok(result) => Ok(HttpResponse::Ok().json(result.fc.unwrap())),
+        Ok(result) => {
+            let features = generate_features(&result).await;
+            Ok(HttpResponse::Ok().body(format!(
+                r#"{{features": {}, "type": "FeatureCollection"}}"#,
+                features,
+            )))
+        }
         Err(e) => Err(actix_web::error::ErrorInternalServerError(format!("{}", e))),
     }
 }
