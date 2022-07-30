@@ -6,6 +6,7 @@
         "EPSG",
         "geozero",
         "libproj",
+        "mapbox",
         "postgis",
         "prefs",
         "shapefile",

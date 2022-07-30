@@ -181,9 +181,20 @@ fn tile_polygon(zoom: u8, x: u32, y: u32) -> Result<String, actix_web::Error> {
     let from = format!("EPSG:{}", EPSG_WGS84);
     let to = format!("EPSG:{}", EPSG_WEB_MERCATOR);
     let ft_to_m = Proj::new_known_crs(&from, &to, None).unwrap();
-    let lb = ft_to_m.convert(lb).unwrap();
-    let rt = ft_to_m.convert(rt).unwrap();
-
+    let mut lb = ft_to_m.convert(lb).unwrap();
+    let mut rt = ft_to_m.convert(rt).unwrap();
+    /*
+        タイル範囲を拡張
+        https://stackoverflow.com/questions/63527124/openlayers-vector-tiles-styling-features-at-edges
+        If you are producing your own tiles make sure they have a buffer overlapping the adjacent tiles
+        docs.mapbox.com/vector-tiles/specification/#encoding-geometry – Mike Aug 21, 2020 at 20:53
+    */
+    let x_expand = (rt.0 - lb.0) * 2.0 / 10.0;
+    lb.0 -= x_expand;
+    rt.0 += x_expand;
+    let y_expand = (rt.1 - lb.1) * 2.0 / 10.0;
+    lb.1 -= y_expand;
+    rt.1 += y_expand;
     // タイルの範囲を示すポリゴンを定義
     Ok(format!(
         "POLYGON(({} {}, {} {}, {} {}, {} {}, {} {}))",
