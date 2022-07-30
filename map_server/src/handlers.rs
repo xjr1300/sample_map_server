@@ -54,13 +54,32 @@ pub async fn cities(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
+struct FeatureRecord {
+    feature: Option<String>,
+}
+
+async fn generate_features(records: &[FeatureRecord]) -> String {
+    let mut features = "[".to_owned();
+    for record in records {
+        features.push_str(&record.feature.as_ref().unwrap());
+        features.push(',');
+    }
+    if 1 < features.len() {
+        features.remove(features.len() - 1);
+    }
+    features.push(']');
+
+    features
+}
+
 #[tracing::instrument(name = "Tiled cities", skip(pool))]
 pub async fn tiled_cities(
     path: web::Path<(u8, u32, u32)>,
     pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let polygon = tile_polygon(path.0, path.1, path.2)?;
-    let result = sqlx::query!(
+    let result = sqlx::query_as!(
+        FeatureRecord,
         r#"
         SELECT ST_AsGeoJSON(c.*) feature
         FROM (
@@ -78,15 +97,7 @@ pub async fn tiled_cities(
 
     match result {
         Ok(result) => {
-            let mut features = "[".to_owned();
-            for record in result {
-                features.push_str(&record.feature.unwrap());
-                features.push(',');
-            }
-            if 1 < features.len() {
-                features.remove(features.len() - 1);
-            }
-            features.push(']');
+            let features = generate_features(&result).await;
             Ok(actix_web::HttpResponse::Ok().body(format!(
                 r#"{{"features": {}, "type": "FeatureCollection"}}"#,
                 features
