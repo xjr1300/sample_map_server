@@ -160,7 +160,7 @@ pub async fn tiled_post_offices(
         Ok(result) => {
             let features = generate_features(&result).await;
             Ok(HttpResponse::Ok().body(format!(
-                r#"{{features": {}, "type": "FeatureCollection"}}"#,
+                r#"{{"features": {}, "type": "FeatureCollection"}}"#,
                 features,
             )))
         }
