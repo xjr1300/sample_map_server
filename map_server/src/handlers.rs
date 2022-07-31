@@ -191,7 +191,7 @@ async fn generate_post_office_features(post_offices: &[PostOffice]) -> String {
         features.push_str(&generate_post_office_feature(post_office));
         features.push(',');
     }
-    if post_offices.is_empty() {
+    if !post_offices.is_empty() {
         features.remove(features.len() - 1);
     }
     features.push(']');
