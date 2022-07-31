@@ -1,7 +1,9 @@
 use actix_web::{web, HttpResponse, Responder};
+use geojson::{JsonObject, JsonValue};
+use geozero::wkb;
 use proj::Proj;
 use slippy_map_tiles as smt;
-use sqlx::PgPool;
+use sqlx::{types::Uuid, PgPool};
 
 use utils::{EPSG_WEB_MERCATOR, EPSG_WGS84};
 
@@ -130,6 +132,73 @@ pub async fn post_offices(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
+struct PostOffice {
+    id: Uuid,
+    city_code: String,
+    category_code: String,
+    subcategory_code: String,
+    post_office_code: String,
+    name: String,
+    address: String,
+    geom: wkb::Decode<geo_types::Geometry<f64>>,
+}
+
+fn generate_post_office_feature(post_office: &PostOffice) -> String {
+    let mut properties = JsonObject::new();
+    properties.insert(
+        "city_code".to_string(),
+        JsonValue::from(post_office.city_code.to_string()),
+    );
+    properties.insert(
+        "category_code".to_string(),
+        JsonValue::from(post_office.category_code.to_string()),
+    );
+    properties.insert(
+        "subcategory_code".to_string(),
+        JsonValue::from(post_office.subcategory_code.to_string()),
+    );
+    properties.insert(
+        "post_office_code".to_string(),
+        JsonValue::from(post_office.post_office_code.to_string()),
+    );
+    properties.insert(
+        "name".to_string(),
+        JsonValue::from(post_office.name.to_string()),
+    );
+    properties.insert(
+        "address".to_string(),
+        JsonValue::from(post_office.address.to_string()),
+    );
+    let geometry = geojson::Value::from(post_office.geom.geometry.as_ref().unwrap());
+    let feature = geojson::Feature {
+        bbox: None,
+        geometry: Some(geojson::Geometry {
+            value: geometry,
+            bbox: None,
+            foreign_members: None,
+        }),
+        id: Some(geojson::feature::Id::String(post_office.id.to_string())),
+        properties: Some(properties),
+        foreign_members: None,
+    };
+
+    feature.to_string()
+}
+
+async fn generate_post_office_features(post_offices: &[PostOffice]) -> String {
+    let mut features = String::from("[");
+    for post_office in post_offices {
+        features.push_str(&generate_post_office_feature(post_office));
+        features.push(',');
+    }
+    if post_offices.is_empty() {
+        features.remove(features.len() - 1);
+    }
+    features.push(']');
+
+    features
+}
+
 #[tracing::instrument(name = "Tiled post offices", skip(pool))]
 pub async fn tiled_post_offices(
     path: web::Path<(u8, u32, u32)>,
@@ -137,18 +206,15 @@ pub async fn tiled_post_offices(
 ) -> Result<HttpResponse, actix_web::Error> {
     let polygon = tile_polygon(path.0, path.1, path.2)?;
     let result = sqlx::query_as!(
-        FeatureRecord,
+        PostOffice,
         r#"
-        SELECT ST_AsGeoJSON(p.*) feature
-        FROM (
-            SELECT
-                id, city_code, category_code, subcategory_code, post_office_code,
-                name, address, geom
-            FROM
-                post_offices
-            WHERE
-                ST_Intersects(geom, ST_GeomFromText($1, $2))
-        ) p
+        SELECT
+            id, city_code, category_code, subcategory_code, post_office_code,
+            name, address, geom as "geom!: _"
+        FROM
+            post_offices
+        WHERE
+            ST_Intersects(geom, ST_GeomFromText($1, $2))
         "#,
         polygon,
         EPSG_WEB_MERCATOR,
@@ -158,7 +224,7 @@ pub async fn tiled_post_offices(
 
     match result {
         Ok(result) => {
-            let features = generate_features(&result).await;
+            let features = generate_post_office_features(&result).await;
             Ok(HttpResponse::Ok().body(format!(
                 r#"{{"features": {}, "type": "FeatureCollection"}}"#,
                 features,
