@@ -7,6 +7,8 @@
 
 ## 国土数値情報
 
+[国土数値情報ダウンロードサイトコンテンツ利用規約](https://nlftp.mlit.go.jp/ksj/other/agreement.html)
+
 * [行政区域データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v3_1.html)
   * `resources/gifu_prefecture-20220101.geojson`
 * [郵便局データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P30.html)
