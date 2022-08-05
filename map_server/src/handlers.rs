@@ -56,82 +56,6 @@ pub async fn cities(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
-struct FeatureRecord {
-    feature: Option<String>,
-}
-
-async fn generate_features(records: &[FeatureRecord]) -> String {
-    let mut features = "[".to_owned();
-    for record in records {
-        features.push_str(record.feature.as_ref().unwrap());
-        features.push(',');
-    }
-    if 1 < features.len() {
-        features.remove(features.len() - 1);
-    }
-    features.push(']');
-
-    features
-}
-
-#[tracing::instrument(name = "Tiled cities", skip(pool))]
-pub async fn tiled_cities(
-    path: web::Path<(u8, u32, u32)>,
-    pool: web::Data<PgPool>,
-) -> Result<HttpResponse, actix_web::Error> {
-    let polygon = tile_polygon(path.0, path.1, path.2)?;
-    let result = sqlx::query_as!(
-        FeatureRecord,
-        r#"
-        SELECT ST_AsGeoJSON(c.*) feature
-        FROM (
-            SELECT
-                id, code, area, name, geom FROM cities
-            WHERE
-                ST_Intersects(geom, ST_GeomFromText($1, $2))
-        ) c
-        "#,
-        polygon,
-        EPSG_WEB_MERCATOR,
-    )
-    .fetch_all(pool.as_ref())
-    .await;
-
-    match result {
-        Ok(result) => {
-            let features = generate_features(&result).await;
-            Ok(actix_web::HttpResponse::Ok().body(format!(
-                r#"{{"features": {}, "type": "FeatureCollection"}}"#,
-                features
-            )))
-        }
-        Err(e) => Err(actix_web::error::ErrorInternalServerError(format!("{}", e))),
-    }
-}
-
-#[tracing::instrument(name = "Post offices", skip(pool))]
-pub async fn post_offices(pool: web::Data<PgPool>) -> HttpResponse {
-    let result = sqlx::query!(
-        r#"
-        SELECT json_build_object(
-            'type', 'FeatureCollection',
-            'features', json_agg(ST_AsGeoJSON(p.*)::json)
-        ) as fc
-        FROM (
-            SELECT id, city_code, category_code, subcategory_code, post_office_code,
-            name, address, geom FROM post_offices
-        ) p
-        "#,
-    )
-    .fetch_one(pool.as_ref())
-    .await;
-
-    match result {
-        Ok(result) => HttpResponse::Ok().json(result.fc.unwrap()),
-        Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
-    }
-}
-
 struct PostOffice {
     id: Uuid,
     city_code: String,
@@ -199,8 +123,8 @@ async fn generate_post_office_features(post_offices: &[PostOffice]) -> String {
     features
 }
 
-#[tracing::instrument(name = "Tiled post offices", skip(pool))]
-pub async fn tiled_post_offices(
+#[tracing::instrument(name = "Post offices", skip(pool))]
+pub async fn post_offices(
     path: web::Path<(u8, u32, u32)>,
     pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
