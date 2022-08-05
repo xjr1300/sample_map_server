@@ -8,7 +8,9 @@
 ## 国土数値情報
 
 * [行政区域データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v3_1.html)
+  * `resources/gifu_prefecture-20220101.geojson`
 * [郵便局データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P30.html)
+  * `resources/gifu_post_offices.shp`
 
 ## Docker
 
@@ -29,4 +31,22 @@ cargo install sqlx-cli --no-default-features --features native-tls,postgres
 
 ```bash
 brew install proj
+```
+
+## 行政区域データの登録
+
+```bash
+cargo run --package register_prefecture -- --file ./resources/gifu_prefecture-20220101.geojson --code 21
+```
+
+## 郵便局データの登録
+
+```bash
+cargo run --package register_post_office -- --file ./resources/gifu_post_offices.shp --code 21 --srid 4612 --encoding shift_jis
+```
+
+## 地図APIサーバーの起動
+
+```bash
+cargo run --package map_server
 ```
