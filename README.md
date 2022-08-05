@@ -14,11 +14,17 @@
 
 ## SQLx
 
+バージョン0.5
+
+`geozero = "0.9"`が、`sqlx = "0.6"`に対応していない。
+
 ```bash
 cargo install sqlx-cli --no-default-features --features native-tls,postgres
 ```
 
 ## Proj
+
+バージョン0.27
 
 行政区域データなどをWebメルカトルに変換するために`proj`を使用する。
 本アプリが使用する`proj-0.27`クレートは、`libproj v9.0.x`に依存している。
@@ -61,4 +67,4 @@ cargo run --package map_server
 
 ## 郵便局地図の閲覧
 
-`sample_map_app`で郵便局地図を閲覧する。
+[Sample Map App](https://github.com/xjr1300/sample_map_app)で郵便局地図を閲覧する。
