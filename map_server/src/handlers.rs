@@ -146,19 +146,19 @@ struct PostOffice {
 fn generate_post_office_feature(post_office: &PostOffice) -> String {
     let mut properties = JsonObject::new();
     properties.insert(
-        "city_code".to_string(),
+        "cityCode".to_string(),
         JsonValue::from(post_office.city_code.to_string()),
     );
     properties.insert(
-        "category_code".to_string(),
+        "categoryCode".to_string(),
         JsonValue::from(post_office.category_code.to_string()),
     );
     properties.insert(
-        "subcategory_code".to_string(),
+        "subcategoryCode".to_string(),
         JsonValue::from(post_office.subcategory_code.to_string()),
     );
     properties.insert(
-        "post_office_code".to_string(),
+        "postOfficeCode".to_string(),
         JsonValue::from(post_office.post_office_code.to_string()),
     );
     properties.insert(
