@@ -12,12 +12,6 @@
 * [郵便局データ](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P30.html)
   * `resources/gifu_post_offices.shp`
 
-## Docker
-
-```bash
-docker-compose up -d
-```
-
 ## SQLx
 
 ```bash
@@ -33,6 +27,20 @@ cargo install sqlx-cli --no-default-features --features native-tls,postgres
 brew install proj
 ```
 
+## PostgreSQL with PostGISコンテナの作成
+
+```bash
+docker-compose up -d
+```
+
+## PostgreSQL with PostGISコンテナの起動とデータベースマイグレーションの実行
+
+`PostgreSQL with PostGIS`コンテナが起動していない状態で実行する。
+
+```bash
+./scripts/run_containers.sh
+```
+
 ## 行政区域データの登録
 
 ```bash
@@ -45,8 +53,12 @@ cargo run --package register_prefecture -- --file ./resources/gifu_prefecture-20
 cargo run --package register_post_office -- --file ./resources/gifu_post_offices.shp --code 21 --srid 4612 --encoding shift_jis
 ```
 
-## 地図APIサーバーの起動
+## 郵便局地図APIサーバーの起動
 
 ```bash
 cargo run --package map_server
 ```
+
+## 郵便局地図の閲覧
+
+`sample_map_app`で郵便局地図を閲覧する。
